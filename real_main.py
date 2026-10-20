@@ -688,6 +688,12 @@ class AmizooApp(App):
             self.status_text = "Last scan: %d servers (not re-tested)." % len(self.working)
         self._refresh_list()
         self._geo_async()
+        adopted = self.engine.adopt()                            # the VPN kept running while the app was closed
+        if adopted:
+            self.current = adopted
+            self._conn().title_text = self._title_of(adopted)
+            s = self.engine.poll()
+            self._last_rx, self._last_tx, self._last_tick = s["rx"], s["tx"], time.time()
         Clock.schedule_interval(self._tick, 1.0)
         self.root.ids.splash.start(self._enter_home)
 
@@ -1112,14 +1118,17 @@ class AmizooApp(App):
         self.current = proxy
         c = self._conn()
         c.down_hist, c.up_hist, c.error_text, c.ping_text = [], [], "", "-"
-        c.title_text = (proxy.name or proxy.addr) if proxy.kind == "v2ray" else "%s  %s" % (proxy.kind.upper(), proxy.addr)
-        if proxy.country:
-            c.title_text += "  (%s)" % proxy.country
+        c.title_text = self._title_of(proxy)
         self._last_rx = self._last_tx = 0
         self._last_tick, self._last_ping, self._direct = time.time(), 0.0, None
         self._go("conn", "left")
         self.engine.connect(proxy)
         self._tick(0)
+
+    @staticmethod
+    def _title_of(proxy):
+        t = (proxy.name or proxy.addr) if proxy.kind == "v2ray" else "%s  %s" % (proxy.kind.upper(), proxy.addr)
+        return t + ("  (%s)" % proxy.country if proxy.country else "")
 
     def open_conn(self):
         if self.current:
